@@ -270,6 +270,7 @@ Function Get-BuildArgs {
         [string]$Platform,
         [string]$PublishDir,
         [string]$RuntimeIdentifier,
+        [string]$TargetFramework,
         [switch]$UseMsBuild,
         [switch]$Restore
     )
@@ -281,9 +282,9 @@ Function Get-BuildArgs {
     $LangVersion = 'latest'
     
     if (-not $Restore) {
-        $BuildArgs = "$escapeparser /bl:$LogFile /p:Platform=$Platform /p:LangVersion=$LangVersion /p:PublishDir=$PublishDir /p:UseCommonOutputDirectory=true /p:RuntimeIdentifier=$RuntimeIdentifier /clp:Summary;Verbosity=$Verbosity /nr:$NodeReuse"
+        $BuildArgs = "$escapeparser /bl:$LogFile /p:Platform=$Platform /p:LangVersion=$LangVersion /p:PublishDir=$PublishDir /p:UseCommonOutputDirectory=true /p:TargetFramework=$TargetFramework /p:RuntimeIdentifier=$RuntimeIdentifier /clp:Summary;Verbosity=$Verbosity /nr:$NodeReuse"
     } else {
-        $BuildArgs = "$escapeparser /bl:$RestoreLogFile /p:RuntimeIdentifier=$RuntimeIdentifier /clp:Summary;Verbosity=$Verbosity /nr:$NodeReuse"
+        $BuildArgs = "$escapeparser /bl:$RestoreLogFile /p:TargetFramework=$TargetFramework /p:RuntimeIdentifier=$RuntimeIdentifier /clp:Summary;Verbosity=$Verbosity /nr:$NodeReuse"
     }
     
     if ($UseMsBuild) {
@@ -330,8 +331,12 @@ $MsBuildOnlySolution = Join-Path $RepoRoot 'WPFSamples.msbuild.sln'
 $EnsureGlobalJsonSdk = Join-Path $Eng 'EnsureGlobalJsonSdk.ps1'
 
 if (-not $TargetFramework) {
-    $json = (Get-Content $GlobalJson | ConvertFrom-Json)
-    $TargetFramework = Get-Tfm $json.sdk.version
+    if (-not $SdkVersionOverride) {
+        $json = (Get-Content $GlobalJson | ConvertFrom-Json)
+        $TargetFramework = Get-Tfm $json.sdk.version
+    } else {
+        $TargetFramework = Get-Tfm $SdkVersionOverride
+    }
 }
 
 $Artifacts = Join-path (Join-path (Join-Path (Join-Path $RepoRoot 'artifacts') $Configuration) $TargetFramework) $Architecture
@@ -371,8 +376,8 @@ Try {
         $LogFiles += $RestoreLogFile
         $LogFiles += $LogFile
 
-        $BuildArgs = Get-BuildArgs -LogFile $LogFile -Platform $Architecture -PublishDir $PublishDir -RuntimeIdentifier $RuntimeIdentifier 
-        $RestoreArgs = Get-BuildArgs -LogFile $RestoreLogFile -Platform $Architecture -PublishDir $PublishDir -RuntimeIdentifier $RuntimeIdentifier -Restore
+        $BuildArgs = Get-BuildArgs -LogFile $LogFile -Platform $Architecture -PublishDir $PublishDir -RuntimeIdentifier $RuntimeIdentifier -TargetFramework $TargetFramework
+        $RestoreArgs = Get-BuildArgs -LogFile $RestoreLogFile -Platform $Architecture -PublishDir $PublishDir -RuntimeIdentifier $RuntimeIdentifier -Restore -TargetFramework $TargetFramework
 
         $BuildCmd = "$DotNet restore $RestoreArgs $Solution"
         Write-Verbose $BuildCmd
